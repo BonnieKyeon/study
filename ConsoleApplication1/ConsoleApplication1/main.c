@@ -5,36 +5,28 @@
 #define ARG_NUM 2
 #define BUFFER_SIZE 256
 
-char* mFileName = NULL;
-
 void printUsage();
-void compare(FILE *file1, FILE *file2);
+void compareFileSize(char *file1, char *file2);
 
 int isTextFile(char* filePath);
 
-FILE* compressTextFile(FILE *originFile);
-FILE* decompressTextFile(FILE *compressedFile);
+char* compressFile(char *originalFileName);
+char* decompressFile(char *compressedFileName);
 
 int main(int argc, char* argv[])
 {
 	if (argc == ARG_NUM) {
-		mFileName = argv[1];
+		char* originalFileName = argv[1];
 
-		if (isTextFile(mFileName)) {
-			FILE *file;
-			int ret = fopen_s(&file, mFileName, "rt");
+		if (isTextFile(originalFileName)) {
+			char* compressedFileName = compressFile(originalFileName);
+			if (compressedFileName != NULL) {
+				compareFileSize(originalFileName, compressedFileName);
 
-			if (ret == 0) {
-				FILE *compressedFile = compressTextFile(file);
-				compare(file, compressedFile);
-
-				FILE *decompressedFile = decompressTextFile(compressedFile);
-				compare(decompressedFile, file);
-
-				fclose(file);
-			}
-			else {
-				printf("ret : %d\n", ret);
+				char* decompressedFileName = decompressFile(compressedFileName);
+				if (decompressedFileName != NULL) {
+					compareFileSize(compressedFileName, decompressedFileName);
+				}
 			}
 		}
 		else {
@@ -49,69 +41,126 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-FILE* compressTextFile(FILE *originFile) {
+char* compressFile(char *originalFileName) {
 	char tempC = '\0';
 	char countBuffer[BUFFER_SIZE];
 	char c;
 	int count = 0;
-	FILE *newFile = NULL;
+	FILE *originFile;
+	FILE *compressedFile;
+	char* compressedFileName = "./test_compress.txt";
+
 	int ret;
-	char* newFileName = "./test_compress.txt";
-	ret = fopen_s(&newFile, newFileName, "w");
 
-	printf("compressFile\n");
+	ret = fopen_s(&originFile, originalFileName, "rt");
 	if (ret == 0) {
-		while ((c = fgetc(originFile)) != EOF) {
+		ret = fopen_s(&compressedFile, compressedFileName, "w");
+		if (ret == 0) {
+			while ((c = fgetc(originFile)) != EOF) {
+				if (tempC == '\0') {
+					tempC = c;
+					count++;
+				}
+				else if (tempC == c) {
+					count++;
+				}
+				else {
+					fputc(tempC, compressedFile);
+					if (count > 1) {
+						sprintf_s(countBuffer, BUFFER_SIZE, "%d", count);
+						fputs(countBuffer, compressedFile);
+					}
+					tempC = c;
+					count = 1;
+				}
+			}
 
-			if (tempC == '\0') {
-				tempC = c;
-				count++;
-				printf("tempC = %c\n", tempC);
-			}
-			else if (tempC == c) {
-				count++;
-				printf("tempC : %c, count : %d\n", tempC, count);
-			}
-			else {
-				fputc(tempC, newFile);
+			if (tempC != '\0') {
+				fputc(tempC, compressedFile);
 				if (count > 1) {
 					sprintf_s(countBuffer, BUFFER_SIZE, "%d", count);
-					fputs(countBuffer, newFile);
+					fputs(countBuffer, compressedFile);
 				}
-
-				printf("tempC : %c, c : %c, countBuffer : %s\n", tempC, c, countBuffer);
-				tempC = c;
-				count = 1;
 			}
+
+			fclose(compressedFile);
 		}
-
-		if (tempC != '\0') {
-			fputc(tempC, newFile);
-			if (count > 1) {
-				sprintf_s(countBuffer, BUFFER_SIZE, "%d", count);
-				fputs(countBuffer, newFile);
-			}
+		else {
+			compressedFileName = NULL;
 		}
-
-
-		fclose(newFile);
+		fclose(originFile);
+	}
+	else {
+		compressedFileName = NULL;
 	}
 
 	printf("\n");
 
-	return NULL;
+	return compressedFileName;
 }
 
-FILE* decompressTextFile(FILE *compressedFile) {
-	return NULL;
+char* decompressFile(char *compressedFileName) {
+	FILE *compressedFile;
+	FILE *decompressedFile;
+	char* decompressedFileName = "./test_decompress.txt";
+
+	int ret;
+
+	ret = fopen_s(&compressedFile, compressedFileName, "rt");
+	if (ret == 0) {
+		ret = fopen_s(&decompressedFile, decompressedFileName, "w");
+		if (ret == 0) {
+			/*while (!feof(compressedFile)) {
+
+			}*/
+			
+			fclose(decompressedFile);
+		}
+		else {
+			decompressedFileName = NULL;
+		}
+		fclose(compressedFile);
+	}
+	else {
+		decompressedFileName = NULL;
+	}
+
+	return decompressedFileName;
 }
 
 void printUsage(void) {
 	printf("How to use : \n");
 }
 
-void compare(FILE *file1, FILE *file2) {
+void compareFileSize(char *file1Name, char *file2Name) {
+	long file1Size;
+	long file2Size;
+	FILE *file1;
+	FILE *file2;
+	int ret;
 
+	if (file1Name != NULL ) {
+		ret = fopen_s(&file1, file1Name, "r");
+		if (ret == 0) {
+			fseek(file1, 0, SEEK_END);
+			file1Size = ftell(file1);
+			fclose(file1);
+		}
+	}
+	if (file2Name != NULL) {
+		fopen_s(&file2, file2Name, "r");
+		if (ret == 0) {
+			fseek(file2, 0, SEEK_END);
+			file2Size = ftell(file2);
+			fclose(file2);
+		}
+	}
+
+	printf("%s size : %ld\n", file1Name, file1Size);
+	printf("%s size : %ld\n", file2Name, file2Size);
+
+	if(file2Size > 0)
+		printf("%d.%d\n", (file1Size / file2Size), (file1Size % file2Size));
 }
 
 int isTextFile(char* filePath) {
