@@ -3,7 +3,9 @@
 #include <stdlib.h>
 
 #define ARG_NUM 2
-#define BUFFER_SIZE 256
+#define COM_BUFFER_SIZE 256
+#define DE_BUFFER_SIZE 10
+#define ESCAPE_C '*'
 
 void printUsage();
 void compareFileSize(char *file1, char *file2);
@@ -18,20 +20,20 @@ int main(int argc, char* argv[])
 	if (argc == ARG_NUM) {
 		char* originalFileName = argv[1];
 
-		if (isTextFile(originalFileName)) {
-			char* compressedFileName = compressFile(originalFileName);
-			if (compressedFileName != NULL) {
-				compareFileSize(originalFileName, compressedFileName);
+if (isTextFile(originalFileName)) {
+	char* compressedFileName = compressFile(originalFileName);
+	if (compressedFileName != NULL) {
+		compareFileSize(originalFileName, compressedFileName);
 
-				char* decompressedFileName = decompressFile(compressedFileName);
-				if (decompressedFileName != NULL) {
-					compareFileSize(compressedFileName, decompressedFileName);
-				}
-			}
+		char* decompressedFileName = decompressFile(compressedFileName);
+		if (decompressedFileName != NULL) {
+			compareFileSize(compressedFileName, decompressedFileName);
 		}
-		else {
-			printUsage();
-		}
+	}
+}
+else {
+	printUsage();
+}
 	}
 	else {
 		printUsage();
@@ -43,7 +45,7 @@ int main(int argc, char* argv[])
 
 char* compressFile(char *originalFileName) {
 	char tempC = '\0';
-	char countBuffer[BUFFER_SIZE];
+	char countBuffer[COM_BUFFER_SIZE];
 	char c;
 	int count = 0;
 	FILE *originFile;
@@ -67,7 +69,7 @@ char* compressFile(char *originalFileName) {
 				else {
 					fputc(tempC, compressedFile);
 					if (count > 1) {
-						sprintf_s(countBuffer, BUFFER_SIZE, "%d", count);
+						sprintf_s(countBuffer, COM_BUFFER_SIZE, "%d", count);
 						fputs(countBuffer, compressedFile);
 					}
 					tempC = c;
@@ -78,7 +80,7 @@ char* compressFile(char *originalFileName) {
 			if (tempC != '\0') {
 				fputc(tempC, compressedFile);
 				if (count > 1) {
-					sprintf_s(countBuffer, BUFFER_SIZE, "%d", count);
+					sprintf_s(countBuffer, COM_BUFFER_SIZE, "%d", count);
 					fputs(countBuffer, compressedFile);
 				}
 			}
@@ -103,16 +105,60 @@ char* decompressFile(char *compressedFileName) {
 	FILE *compressedFile;
 	FILE *decompressedFile;
 	char* decompressedFileName = "./test_decompress.txt";
-
+	char tempC = '\0';
+	char c;
+	char countBuffer[DE_BUFFER_SIZE] = { '\0' , };
+	int count = 0;
+	int length = 0;
+	int i;
 	int ret;
 
 	ret = fopen_s(&compressedFile, compressedFileName, "rt");
 	if (ret == 0) {
 		ret = fopen_s(&decompressedFile, decompressedFileName, "w");
 		if (ret == 0) {
-			/*while (!feof(compressedFile)) {
+			while (!feof(compressedFile)) {
+				if ((c = fgetc(compressedFile)) != EOF) {
+					if (c >= 48 && c <= 57) {
+						if (tempC != '\0') {
+							*(countBuffer + length) = c;
+							length++;
+						}
+						else {
+							tempC = c;
+						}
+					}
+					else {
+						if (tempC != '\0') {
+							if( length > 0 ) {
+								count = atoi(countBuffer);
+								length = 0;
+								memset(countBuffer, '\0', DE_BUFFER_SIZE);
+								for (i = 0; i < count; i++)
+									fputc(tempC, decompressedFile);
+							}
+							else {
+								fputc(tempC, decompressedFile);
+							}
+							tempC = '\0';
+						}
+						tempC = c;
+					}
+				}
+			}
 
-			}*/
+			if (tempC != '\0') {
+				if (length > 0) {
+					count = atoi(countBuffer);
+					length = 0;
+					memset(countBuffer, '\0', DE_BUFFER_SIZE);
+					for (i = 0; i < count; i++)
+						fputc(tempC, decompressedFile);
+				}
+				else {
+					fputc(tempC, decompressedFile);
+				}
+			}
 			
 			fclose(decompressedFile);
 		}
